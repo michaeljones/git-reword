@@ -1,27 +1,15 @@
 #!/usr/bin/env python3
 
 import sys
-import pygit2
 import time
 
-def ancestors(commit, repository):
-
-    yield commit
-
-    while True:
-        if len(commit.parents) > 1:
-            raise StopIteration()
-        else:
-            parent = commit.parents[0]
-            yield parent
-            commit = parent
-
+from pygit2 import Repository, GIT_SORT_TOPOLOGICAL
 
 def main(args):
 
     sha1 = args[0]
 
-    repository = pygit2.Repository('example')
+    repository = Repository('example')
 
     current_branch = repository.head
 
@@ -32,7 +20,7 @@ def main(args):
 
     history = []
 
-    for commit in ancestors(latest_commit, repository):
+    for commit in repository.walk(repository.head.target, GIT_SORT_TOPOLOGICAL):
         if commit.id == old_commit.id:
             break
         history.insert(0, commit)

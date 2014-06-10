@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import sys
-import time
 
 from pygit2 import Repository, GIT_SORT_TOPOLOGICAL
 
@@ -25,10 +24,8 @@ def main(args):
             break
         history.insert(0, commit)
 
-    new_branch = current_branch.name + str(int(time.time()))
-
     commit = repository.create_commit(
-        new_branch,
+        current_branch.name,
         old_commit.author,
         old_commit.committer,
         'my new commit message again',
@@ -39,7 +36,7 @@ def main(args):
     prev_commit = commit
     for entry in history:
         prev_commit = repository.create_commit(
-            new_branch,
+            current_branch.name,
             entry.author,
             entry.committer,
             entry.message,

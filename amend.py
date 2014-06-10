@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 
 import sys
+import os
 
-from pygit2 import Repository, GIT_SORT_TOPOLOGICAL
+from pygit2 import Repository, discover_repository, GIT_SORT_TOPOLOGICAL
 
 def main(args):
 
     sha1 = args[0]
 
-    repository = Repository('example')
+    # Discover the path to the repository we're in
+    cwd = os.getcwd()
+    repo_path = discover_repository(cwd)
+
+    repository = Repository(repo_path)
 
     current_branch = repository.head
 

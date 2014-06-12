@@ -49,6 +49,13 @@ def main(args):
             [prev_commit]
             )
 
+    # Add reflog entry for the change we've just made to the branch
+    current_branch.log_append(prev_commit, old_commit.author, "reword: message for %s" % sha1)
+
+    head = repository.lookup_reference("HEAD")
+    head.log_append(prev_commit, old_commit.author,
+                    "reword: switching to new %s" % current_branch.name)
+
     return 0
 
 if __name__ == "__main__":

@@ -24,10 +24,15 @@ def main(args):
 
     history = []
 
+    found = False
     for commit in repository.walk(repository.head.target, GIT_SORT_TOPOLOGICAL):
         if commit.id == old_commit.id:
+            found = True
             break
         history.insert(0, commit)
+
+    if not found:
+        return 1
 
     commit = repository.create_commit(
         current_branch.name,

@@ -1,7 +1,10 @@
 #!/bin/sh
 
-export LD_LIBRARY_PATH=lib/lib:$LD_LIBRARY_PATH
-export LIBGIT2=lib
+amend=`which amend.py`
+dir=`dirname $amend`
 
-python3 amend.py $*
+export LD_LIBRARY_PATH=$dir/lib/lib:$LD_LIBRARY_PATH
+export LIBGIT2=$dir/lib
+
+python3 $amend $*
 

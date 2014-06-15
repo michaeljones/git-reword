@@ -1,10 +1,10 @@
 #!/bin/sh
 
-amend=`which amend.py`
-dir=`dirname $amend`
+reword=`which reword.py`
+dir=`dirname $reword`
 
 export LD_LIBRARY_PATH=$dir/lib/lib:$LD_LIBRARY_PATH
 export LIBGIT2=$dir/lib
 
-python3 $amend $*
+python3 $reword $*
 

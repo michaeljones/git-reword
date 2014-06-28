@@ -58,17 +58,36 @@ class Node:
         # Get new commit from the repo
         self.commit = repo.get(oid)
 
+class CommitNotFoundError(Exception):
+    pass
 
 class Graph:
 
-    def __init__(self, repo):
+    def __init__(self, repo, start_oid=None):
+
         self.repo = repo
         self.head_nodes = {}
         self.children = defaultdict(list)
         self.nodes = {}
         self.visited = []
 
-    def walk(self, oid):
+        self.start_oid = start_oid
+        if start_oid is None:
+            self.start_oid = self.repo.head.target
+
+    def get(self, oid):
+
+        found = False
+        for commit in self.walk(self.start_oid):
+            if commit.id == oid:
+                return commit
+
+        raise CommitNotFoundError()
+
+    def walk(self, oid=None):
+
+        if oid is None:
+            oid = self.start_oid
 
         walker = self.repo.walk(oid, GIT_SORT_TOPOLOGICAL)
 
@@ -123,13 +142,10 @@ def main(args):
 
     graph = Graph(repository)
 
-    found = False
-    for commit in graph.walk(repository.head.target):
-        if commit.id == old_commit.id:
-            found = True
-            break
-
-    if not found:
+    try:
+        commit = graph.get(old_commit.id)
+    except CommitNotFoundError:
+        sys.stderr.write("Failed to find commit\n")
         return 1
 
     # Set the commit message

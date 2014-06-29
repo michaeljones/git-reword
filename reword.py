@@ -117,7 +117,6 @@ class Graph:
 
     def get(self, oid):
 
-        found = False
         for commit in self.walk(self.start_oid):
             if commit.id == oid:
                 return commit
@@ -184,8 +183,6 @@ class Graph:
 
     def write(self):
 
-        written = set()
-
         stack = [self.last_node]
         stack.extend(self.loose_ends.values())
 
@@ -220,7 +217,7 @@ def get_new_commit_message(repo, commit_message):
     try:
         # We use a string and shell=True incase the editor value has spaces, ie. args of its own
         subprocess.check_call('%s %s' % (editor, commit_message_filename), shell=True)
-    except CalledProcessError:
+    except subprocess.CalledProcessError:
         sys.stderr.write("Attempt to open text editor '%s' failed.\n" % editor)
         return 1
 
@@ -242,9 +239,6 @@ def main(args):
     current_branch = repository.head
 
     old_commit = repository.revparse_single(sha1)
-
-    latest_oid = current_branch.target
-    latest_commit = repository.get(latest_oid)
 
     graph = Graph(repository)
 

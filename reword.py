@@ -3,6 +3,8 @@
 from collections import defaultdict
 import sys
 import os
+import tempfile
+import subprocess
 
 from pygit2 import Repository, discover_repository, GIT_SORT_TOPOLOGICAL
 
@@ -190,6 +192,26 @@ class Graph:
         return last_written.id
 
 
+def get_new_commit_message(commit_message):
+
+    commit_message_file = tempfile.NamedTemporaryFile(delete=False)
+
+    commit_message_file.write(bytes(commit_message, 'UTF-8'))
+    commit_message_file.close()
+
+    editor = os.environ.get('EDITOR', 'vim')
+
+    try:
+        subprocess.check_call('%s %s' % (editor, commit_message_file.name), shell=True)
+    except CalledProcessError:
+        sys.stderr.write("Attempt to open text editor '%s' failed.\n" % editor)
+        return 1
+
+    new_commit_message = open(commit_message_file.name).read()
+
+    return new_commit_message
+
+
 def main(args):
 
     sha1 = args[0]
@@ -216,7 +238,7 @@ def main(args):
         return 1
 
     # Set the commit message
-    commit.message = 'My new commit message'
+    commit.message = get_new_commit_message(commit.message)
 
     oid = graph.write()
 

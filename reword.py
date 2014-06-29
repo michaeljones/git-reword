@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
+
 import sys
 import os
 import subprocess
@@ -14,20 +15,37 @@ def first(iterable):
         return entry
 
 
+class ReferenceNode:
+
+    def __init__(self, commit):
+        self.commit = commit
+
+    @property
+    def id(self):
+        return self.commit.id
+
+    def changed(self):
+        return False
+
+    def written(self):
+        return True
+
+
 class Node:
 
     def __init__(self, commit, children):
-
         self.commit = commit
-        self.untouched_parent_ids = commit.parent_ids[:]
         self.children = children
         self.parents = []
         self.overrides = {}
         self._written = False
 
+        self.parents = OrderedDict()
+        for parent in commit.parents:
+            self.parents[parent.id] = ReferenceNode(parent)
+
     def add_parent(self, parent):
-        self.untouched_parent_ids.remove(parent.id)
-        self.parents.append(parent)
+        self.parents[parent.id] = parent
 
     @property
     def id(self):
@@ -42,16 +60,17 @@ class Node:
 
     @message.setter
     def message(self, message):
-        self.overrides['message'] = message
+        if message != self.message:
+            self.overrides['message'] = message
 
     def written(self):
         return self._written or not self.changed()
 
     def ready_to_write(self):
-        return all(map(lambda p: p.written(), self.parents))
+        return all(map(lambda p: p.written(), self.parents.values()))
 
     def changed(self):
-        return self.overrides or any(map(lambda p: p.changed(), self.parents))
+        return self.overrides or any(map(lambda p: p.changed(), self.parents.values()))
 
     def write(self, repo):
 
@@ -59,8 +78,7 @@ class Node:
         if not self.changed():
             return
 
-        parents = list(map(lambda p: p.id, self.parents))
-        parents.extend(self.untouched_parent_ids)
+        parents = list(map(lambda p: p.id, self.parents.values()))
 
         oid = repo.create_commit(
             None,
@@ -141,7 +159,7 @@ class Graph:
             # Check if our current commit is the parent of any of our loose ends
             cleanup = []
             for loose_end in self.loose_ends.values():
-                if entry.id in set(p.id for p in loose_end.parents):
+                if entry.id in set(p.id for p in loose_end.parents.values()):
                     cleanup.append(loose_end)
 
             for loose_end in cleanup:

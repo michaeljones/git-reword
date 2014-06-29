@@ -3,7 +3,6 @@
 from collections import defaultdict
 import sys
 import os
-import tempfile
 import subprocess
 
 from pygit2 import Repository, discover_repository, GIT_SORT_TOPOLOGICAL
@@ -192,22 +191,22 @@ class Graph:
         return last_written.id
 
 
-def get_new_commit_message(commit_message):
+def get_new_commit_message(repo, commit_message):
 
-    commit_message_file = tempfile.NamedTemporaryFile(delete=False)
-
-    commit_message_file.write(bytes(commit_message, 'UTF-8'))
-    commit_message_file.close()
+    commit_message_filename = os.path.join(repo.path, 'COMMIT_EDITMSG')
+    with open(commit_message_filename, 'w') as f:
+        f.write(commit_message)
 
     editor = os.environ.get('EDITOR', 'vim')
 
     try:
-        subprocess.check_call('%s %s' % (editor, commit_message_file.name), shell=True)
+        # We use a string and shell=True incase the editor value has spaces, ie. args of its own
+        subprocess.check_call('%s %s' % (editor, commit_message_filename), shell=True)
     except CalledProcessError:
         sys.stderr.write("Attempt to open text editor '%s' failed.\n" % editor)
         return 1
 
-    new_commit_message = open(commit_message_file.name).read()
+    new_commit_message = open(commit_message_filename).read()
 
     return new_commit_message
 
@@ -238,7 +237,7 @@ def main(args):
         return 1
 
     # Set the commit message
-    commit.message = get_new_commit_message(commit.message)
+    commit.message = get_new_commit_message(repository, commit.message)
 
     oid = graph.write()
 

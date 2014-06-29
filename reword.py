@@ -18,8 +18,15 @@ class Node:
     def __init__(self, commit, children):
 
         self.commit = commit
+        self.untouched_parent_ids = commit.parent_ids[:]
         self.children = children
+        self.parents = []
         self.overrides = {}
+        self._written = False
+
+    def add_parent(self, parent):
+        self.untouched_parent_ids.remove(parent.id)
+        self.parents.append(parent)
 
     @property
     def id(self):
@@ -36,15 +43,16 @@ class Node:
     def message(self, message):
         self.overrides['message'] = message
 
-    def write(self, repo, node_lookup):
+    def written(self):
+        return self._written
 
-        def parent_id(id_):
-            try:
-                return node_lookup[id_].id
-            except KeyError:
-                return id_
+    def ready_to_write(self):
+        return all(map(lambda p: p.written(), self.parents))
 
-        parents = list(map(parent_id, self.commit.parent_ids))
+    def write(self, repo):
+
+        parents = list(map(lambda p: p.id, self.parents))
+        parents.extend(self.untouched_parent_ids)
 
         oid = repo.create_commit(
             None,
@@ -58,8 +66,12 @@ class Node:
         # Get new commit from the repo
         self.commit = repo.get(oid)
 
+        self._written = True
+
+
 class CommitNotFoundError(Exception):
     pass
+
 
 class Graph:
 
@@ -70,6 +82,8 @@ class Graph:
         self.children = defaultdict(list)
         self.nodes = {}
         self.visited = []
+        self.last_node = None
+        self.loose_ends = {}
 
         self.start_oid = start_oid
         if start_oid is None:
@@ -96,31 +110,77 @@ class Graph:
         node = Node(commit, [])
         self.head_nodes[commit.id] = node
 
+        self.visited.append(node)
+        self.nodes[node.id] = node
+        self.last_node = node
+        yield node
+
         # Record this node against its parents' ids as we can only find out parents not children so
         # we create a look up so that later we can find the children of a node in order to wire up
         # our custom node graph
         for entry in commit.parent_ids:
-            self.children[entry].append(commit)
+            self.children[entry].append(node)
 
-        self.visited.append(node)
-        self.nodes[node.id] = node
-        yield node
+        last_commit = commit
 
         for entry in walker:
+
+            if entry.id not in set(last_commit.parent_ids):
+                # If the new commit is not a parent of the last commit then we must have switched
+                # over to another branch so we track the last commit as a loose end
+                self.loose_ends[last_commit.id] = node
+
+            # Check if our current commit is the parent of any of our loose ends
+            cleanup = []
+            for loose_end in self.loose_ends:
+                if entry.id in set(p.id for p in loose_end.parents):
+                    cleanup.append(loose_end)
+
+            for loose_end in cleanup:
+                self.loose_ends.pop(loose_end.id)
 
             children = self.children[entry.id]
             node = Node(entry, children)
 
+            for child in children:
+                child.add_parent(node)
+
+            # Store child relationships
+            for id in entry.parent_ids:
+                self.children[id].append(node)
+
             self.visited.append(node)
             self.nodes[node.id] = node
+            self.last_node = node
             yield node
+
+            last_commit = entry
 
     def write(self):
 
-        for node in reversed(self.visited):
-            node.write(self.repo, self.nodes)
+        written = set()
 
-        return self.visited[0].id
+        stack = [self.last_node]
+        stack.extend(self.loose_ends.items())
+
+        last_written = None
+
+        while stack:
+
+            node = stack.pop()
+
+            if not node.ready_to_write():
+                stack.insert(0, node)
+                continue
+
+            node.write(self.repo)
+
+            last_written = node
+
+            for child in node.children:
+                stack.append(child)
+
+        return last_written.id
 
 
 def main(args):
@@ -165,5 +225,5 @@ def main(args):
     return 0
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:])) 
+    sys.exit(main(sys.argv[1:]))
 

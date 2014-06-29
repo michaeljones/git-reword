@@ -132,7 +132,7 @@ class Graph:
 
             # Check if our current commit is the parent of any of our loose ends
             cleanup = []
-            for loose_end in self.loose_ends:
+            for loose_end in self.loose_ends.values():
                 if entry.id in set(p.id for p in loose_end.parents):
                     cleanup.append(loose_end)
 
@@ -161,7 +161,7 @@ class Graph:
         written = set()
 
         stack = [self.last_node]
-        stack.extend(self.loose_ends.items())
+        stack.extend(self.loose_ends.values())
 
         last_written = None
 

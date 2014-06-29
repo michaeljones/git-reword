@@ -44,12 +44,19 @@ class Node:
         self.overrides['message'] = message
 
     def written(self):
-        return self._written
+        return self._written or not self.changed()
 
     def ready_to_write(self):
         return all(map(lambda p: p.written(), self.parents))
 
+    def changed(self):
+        return self.overrides or any(map(lambda p: p.changed(), self.parents))
+
     def write(self, repo):
+
+        # Early exit if neither ourselves nor our parents have changed
+        if not self.changed():
+            return
 
         parents = list(map(lambda p: p.id, self.parents))
         parents.extend(self.untouched_parent_ids)
